@@ -1,0 +1,7 @@
+{
+  "name": "New version SantéDéclice - Déclaration de Santé Publique",
+  "description": "Application de numérisation et de déclaration de santé publique pour médecins avec analyse IA.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

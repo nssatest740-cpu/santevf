@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  
+  --color-medical-primary: #059669; /* Emerald 600 */
+  --color-medical-secondary: #ECFDF5; /* Emerald 50 */
+  --color-medical-accent: #F59E0B; /* Amber 500 */
+  --color-medical-warning: #D97706; /* Amber 600 */
+  --color-medical-bg: #F9FAFB;
+  --color-medical-text: #064E3B; /* Emerald 900 */
+}
+
+@layer base {
+  body {
+    background-color: var(--color-medical-bg);
+    color: var(--color-medical-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    @apply overflow-hidden h-screen w-screen;
+  }
+}
+
+@layer components {
+  .medical-card {
+    @apply bg-white rounded-3xl border border-slate-200/60 shadow-[0_2px_10px_rgba(0,0,0,0.02),0_10px_20px_rgba(0,0,0,0.02)] transition-all duration-300;
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-xl border border-white/40 shadow-2xl rounded-[2rem];
+  }
+
+  .btn-primary {
+    @apply bg-medical-primary text-white px-8 py-4 rounded-full font-bold transition-all duration-300 active:scale-95 shadow-lg shadow-medical-primary/20;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
