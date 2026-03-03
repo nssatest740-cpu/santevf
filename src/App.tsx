@@ -226,7 +226,8 @@ export default function App() {
         try {
           addLog("☁️ Appel Google Sheets...");
           const syncRes = await fetch(`${googleScriptUrl}?action=read&etablissementId=${encodeURIComponent(searchEtabId)}`, {
-  method: 'GET',
+            method: 'GET',
+            mode: 'cors', // Force le mode CORS
   redirect: 'follow' // <--- AJOUTEZ CETTE LIGNE
 });
           if (syncRes.ok) {
