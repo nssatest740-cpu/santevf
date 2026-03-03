@@ -225,8 +225,10 @@ export default function App() {
       if (googleScriptUrl) {
         try {
           addLog("☁️ Appel Google Sheets...");
-          const syncRes = await fetch(`${googleScriptUrl}?action=read&etablissementId=${encodeURIComponent(searchEtabId)}`);
-          
+          const syncRes = await fetch(`${googleScriptUrl}?action=read&etablissementId=${encodeURIComponent(searchEtabId)}`, {
+  method: 'GET',
+  redirect: 'follow' // <--- AJOUTEZ CETTE LIGNE
+});
           if (syncRes.ok) {
             const text = await syncRes.text();
             addLog(`📥 Réponse brute reçue (${text.length} chars)`);
