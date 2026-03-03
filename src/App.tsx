@@ -201,101 +201,69 @@ export default function App() {
     localStorage.setItem('sante_declic_drafts', JSON.stringify(rest));
   };
 
-  const fetchDeclarations = async () => {
-    if (!isLoggedIn || !userEtablissementId) {
-      addLog("⚠️ Sync annulée : ID établissement manquant. Essayez de vous reconnecter.");
+const fetchDeclarations = async () => {
+  if (!isLoggedIn || !userEtablissementId) {
+    addLog("⚠️ Sync annulée : ID établissement manquant.");
+    return;
+  }
+  
+  setIsSyncing(true);
+  const searchEtabId = userEtablissementId.trim();
+  addLog(`🔄 Début sync pour ID: ${searchEtabId}`);
+
+  try {
+    const googleScriptUrl = (import.meta as any).env.VITE_GOOGLE_SCRIPT_URL?.trim();
+    
+    if (!googleScriptUrl) {
+      addLog("❌ Erreur : URL Google Script manquante.");
       return;
     }
-    
-    setIsSyncing(true);
-    const searchEtabId = userEtablissementId.trim();
-    addLog(`🔄 Début sync pour ID: ${searchEtabId}`);
 
-    try {
-      // 1. Lire les données locales
-      addLog("📡 Lecture du cache local (SQLite)...");
-      const res = await fetch(`/api/declarations?etablissement_id=${encodeURIComponent(searchEtabId)}`);
-      const localData = await res.json();
-      addLog(`🏠 Cache local : ${localData.length} entrées trouvées.`);
+    addLog("☁️ Appel Google Sheets...");
+    // AJOUT de redirect: 'follow' et suppression de l'appel /api/local
+    const syncRes = await fetch(`${googleScriptUrl}?action=read&etablissementId=${encodeURIComponent(searchEtabId)}`, {
+      method: 'GET',
+      mode: 'cors',
+      redirect: 'follow' 
+    });
+
+    if (syncRes.ok) {
+      const text = await syncRes.text();
       
-      // 2. Lire les données Google
-      const googleScriptUrl = (import.meta as any).env.VITE_GOOGLE_SCRIPT_URL?.trim();
-      let finalData = Array.isArray(localData) ? [...localData] : [];
-
-      if (googleScriptUrl) {
-        try {
-          addLog("☁️ Appel Google Sheets...");
-          const syncRes = await fetch(`${googleScriptUrl}?action=read&etablissementId=${encodeURIComponent(searchEtabId)}`, {
-            method: 'GET',
-            mode: 'cors', // Force le mode CORS
-  redirect: 'follow' // <--- AJOUTEZ CETTE LIGNE
-});
-          if (syncRes.ok) {
-            const text = await syncRes.text();
-            addLog(`📥 Réponse brute reçue (${text.length} chars)`);
-            
-            try {
-              const remoteData = JSON.parse(text);
-              const count = Array.isArray(remoteData) ? remoteData.length : 0;
-              addLog(`✅ Google Sheets : ${count} entrées trouvées.`);
-              
-              if (Array.isArray(remoteData)) {
-                addLog(`📊 Analyse de ${remoteData.length} dates reçues.`);
-                const normalizedRemote = remoteData.map((d, idx) => {
-                  let rawDate = String(d.date || "").split(' ')[0].split('T')[0];
-                  let normalizedDate = rawDate;
-                  
-                  // Support DD/MM/YYYY et YYYY-MM-DD
-                  if (rawDate.includes('/')) {
-                    const parts = rawDate.split('/');
-                    if (parts[0].length === 4) normalizedDate = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-                    else normalizedDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                  }
-                  
-                  if (idx === 0) addLog(`Exemple: ${rawDate} -> ${normalizedDate}`);
-                  return { ...d, date: normalizedDate };
-                });
-
-                const remoteDates = new Set(normalizedRemote.map(d => d.date));
-                const filteredLocal = finalData.filter(ld => !remoteDates.has(ld.date) || ld.status === 'draft');
-                finalData = [...filteredLocal, ...normalizedRemote];
-                
-                // Mise à jour SQLite
-                for (const rd of normalizedRemote) {
-                  fetch('/api/declarations', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      date: rd.date,
-                      status: rd.status,
-                      cases: rd.cases || [],
-                      etablissement: userEtablissement,
-                      etablissement_id: userEtablissementId
-                    })
-                  }).catch(() => {});
-                }
-                addLog("✨ Synchronisation terminée.");
-              }
-            } catch (parseError) {
-              addLog(`❌ Erreur lecture JSON: ${text.substring(0, 50)}...`);
-            }
-          } else {
-            addLog(`❌ Erreur HTTP Google: ${syncRes.status}`);
-          }
-        } catch (e: any) {
-          addLog(`❌ Erreur réseau Google : ${e.message}`);
-        }
-      } else {
-        addLog("⚠️ URL Google Script non configurée dans .env");
+      // Vérification si la réponse est bien du JSON et non du HTML
+      if (text.trim().startsWith("<!DOCTYPE")) {
+        addLog("❌ Erreur : Le script a renvoyé du HTML (Problème de permissions Anyone ?)");
+        return;
       }
 
-      setDeclarations(finalData);
-    } catch (error: any) {
-      addLog(`❌ Erreur globale : ${error.message}`);
-    } finally {
-      setIsSyncing(false);
+      const remoteData = JSON.parse(text);
+      
+      if (Array.isArray(remoteData)) {
+        const normalizedRemote = remoteData.map(d => {
+          let rawDate = String(d.date || "").split(' ')[0].split('T')[0];
+          let normalizedDate = rawDate;
+          
+          if (rawDate.includes('/')) {
+            const parts = rawDate.split('/');
+            normalizedDate = parts[0].length === 4 
+              ? `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+              : `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+          }
+          return { ...d, date: normalizedDate };
+        });
+
+        setDeclarations(normalizedRemote);
+        addLog(`✅ Sync terminée : ${normalizedRemote.length} entrées.`);
+      }
+    } else {
+      addLog(`❌ Erreur HTTP Google: ${syncRes.status}`);
     }
-  };
+  } catch (error: any) {
+    addLog(`❌ Erreur : ${error.message}`);
+  } finally {
+    setIsSyncing(false);
+  }
+};
 
   const saveDeclaration = async (status: 'validated' | 'zero_cases' | 'draft', cases: CaseData[] = []) => {
     if (isSaving) return; // Empêche le double clic
