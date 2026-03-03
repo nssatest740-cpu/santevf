@@ -7,7 +7,7 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     // AJOUTEZ CETTE LIGNE : remplacez 'nom-de-votre-depot' par le nom exact sur GitHub
-    base: '/santevf', 
+    base: '/santevf/', 
     
     plugins: [react(), tailwindcss()],
     define: {
